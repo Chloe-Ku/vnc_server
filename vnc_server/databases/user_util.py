@@ -28,6 +28,9 @@ class UserUtil(object):
         }
 
 
+    """ Currently all users are by default not approved. Default for admin users should always be kept as not
+        approved. Regular users may need another place to approve.
+    """
     def insertUser(self, user):
         """
         User should have at least the fields fname, lname, email, and password
@@ -36,7 +39,8 @@ class UserUtil(object):
             if self.validateUser(user).message == 'User not found':
                 user['salt'] = ''.join(random.choice(UserUtil.alphabet) for i in range(16))
                 user['hash'] = hashlib.sha512((user['salt'] + user['password']).encode('utf-8')).hexdigest()
-                user['type'] = 'USER'
+                #user['type'] = 'USER'
+                
 
                 cols = [
                     'fname',
@@ -76,7 +80,9 @@ class UserUtil(object):
                 'fname',
                 'lname',
                 'salt',
-                'hash'
+                'hash',
+                'type',
+                'approved'
             ]
 
             whereCols = [
@@ -95,6 +101,14 @@ class UserUtil(object):
             theUser = users.results[0]
 
             newHash = hashlib.sha512((theUser['salt'] + user['password']).encode('utf-8')).hexdigest()
+            
+            # Honestly not the best way to handle this - leaving it like this for time
+            # this is to handle ADMIN sign in from front end when we want the SUPERADMIN
+            # to still function
+            if (theUser['type'] != 'SUPERADMIN' and theUser['type'] != user['type']):
+                return Response(False, 'Permission denied')
+            if (theUser['approved'] == 0):
+                return Response(False, 'Account not approved')
             if (newHash == theUser['hash']):
                 return Response(True, 'Passwords match', results=theUser)
             else:
@@ -102,6 +116,25 @@ class UserUtil(object):
         except Exception as e:
             return Response(False, 'Failed to validate user: %s' % e)
 
+    def approveUser(self, user):
+        try:
+            table = 'Users'
+
+            setObj = {
+                'approved': user['approved']
+            }
+
+            whereObj = {
+                'email': user['email']
+            }
+
+            self.db.update(table, setObj, whereObj)
+
+            return Response(True, 'Successfully updated approval of user')
+        except Exception as e:
+            return Response(False, 'Failed to update user: %s' % e)
+        
+        
     def insertGoogleUser(self, user):
         """
         Insert Google user to DB.
@@ -267,6 +300,38 @@ class UserUtil(object):
             return Response(True, 'Successfully revoked token')
         except Exception as e:
             return Response(False, 'Failed to revoke token for user: %s' % e)
+
+    @staticmethod
+    def get_user_roles(user):
+        db = SQLDB()
+        table = 'Users'
+
+        selectCols = [
+            'email',
+            'type',
+            'approved'
+        ]
+
+        whereCols = [
+            'email'
+        ]
+
+        whereObj = {
+            c: user[c]
+            for c in whereCols
+        }
+        
+        users = db.read(table, selectCols, whereCols, whereObj)
+        if (len(users.results) == 0):
+            return Response(False, 'User not found')
+        
+        theUser = users.results[0]
+        
+        # Check and see if the user is an admin or super admin
+        if (theUser['approved'] == 0):
+            theUser['type'] = 'USER'
+        
+        return theUser['type']
 
     @staticmethod
     def check_token(authToken):

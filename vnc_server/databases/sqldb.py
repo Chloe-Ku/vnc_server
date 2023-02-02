@@ -15,7 +15,7 @@ class SQLDB(object):
             'db':       'EcoPRT'
         }
         # self.conn = pymysql.connect(args)
-        self.conn = pymysql.connect(host='localhost', user='root', password='root', db='EcoPRT')
+        self.conn = pymysql.connect(host='db', user='root', password='root', db='EcoPRT')
 
         #
         # Reflect the list of tables and associated columns into memory.

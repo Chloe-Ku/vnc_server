@@ -10,6 +10,7 @@ from typing import List, Optional, Tuple
 
 from dijkstar import Graph, find_path
 
+
 from vehicle import Vehicle
 
 from typing import Tuple, Optional
@@ -20,9 +21,9 @@ import os
 
 #sys.path.append(os.path.abspath('../databases'))
 #from sqldb import SQLDB
-
-sys.path.append(os.path.abspath('../../vnc_client/scripts'))
-import googlemaps_util
+##TODO line 881 , refactor 
+#sys.path.append(os.path.abspath('../../vnc_client/scripts'))
+#import googlemaps_util
 
 #WAIT_TIME = 180000 #TODO: This code is for a possible auto-confirm pickup/arrival after a time-out. I am not sure this is needed.
 
@@ -483,10 +484,7 @@ class RideDBUtil(object):
         whereObj = {
             'id': rideID
         }
-        print('vehicle_util:486')
-        print(rideID)
         response = db.read('Rides', ['id', 'status', 'tStart', 'startNode', 'endNode', 'pickedUp', 'arrived', 'canceled', 'userEmail', 'vehicleName'], ['id'], whereObj)
-        
         if (response.success != True):
             print('Failed to read for ride existence: %s' %
                   response.message)
@@ -881,11 +879,11 @@ class ProximityRide(VehicleSelectorStrategy):
             for i in range(0, checkLen):
                 ride = queue[i]
                 dest = {'latitude': float(ride.riderLat), 'longitude': float(ride.riderLon)}
-                respon = googlemaps_util.sendGoogleDirectionsRequest(origin, dest)
-                legs = json.loads(respon.text)['routes'][0]['legs']
+                #respon = googlemaps_util.sendGoogleDirectionsRequest(origin, dest)
+                #legs = json.loads(respon.text)['routes'][0]['legs']
                 dist = 0
-                for leg in legs:
-                    dist += leg['distance']['value']
+                #for leg in legs:
+                    #dist += leg['distance']['value']
                 print(dist)
                 if (i == 0) or (minDist > dist):
                     minDist = dist

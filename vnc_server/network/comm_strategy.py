@@ -26,7 +26,7 @@ formatter = logging.Formatter('%(asctime)s - %(name)s - %(module)s - %(levelname
 ch = logging.StreamHandler()
 ch.setLevel(logging.DEBUG)
 ch.setFormatter(formatter)
-logging_path = os.path.dirname(os.path.realpath(__file__)).split("src/")[0] + "/src/server_log"
+logging_path = os.path.dirname(os.path.realpath(__file__)).split("src/")[0] + "src/server_log"
 fh = logging.FileHandler(logging_path)
 fh.setLevel(logging.DEBUG)
 fh.setFormatter(formatter)

@@ -14,7 +14,7 @@ import os
 
 
 
-sys.path.insert(1, os.path.abspath("../../vnc_server/"))
+sys.path.insert(1, os.path.abspath("../"))
 from network.comm_strategy import GoodStrategy
 from vehicle_util import *
 
@@ -354,6 +354,9 @@ class VehicleServer():
         else:
             logger.debug(f"Did not find user with email {email}")
             return None
+
+    def approveUser(self, user):
+        return UserUtil().approveUser(user)
 
     def signIn(self, user):
         return UserUtil().validateUser(user)

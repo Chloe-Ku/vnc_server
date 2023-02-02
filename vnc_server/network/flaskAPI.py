@@ -1,3 +1,6 @@
+from urllib import response
+
+from numpy import poly
 import vehicle_server
 from flask import Flask, Response, request
 import threading
@@ -6,10 +9,14 @@ from pdb import set_trace
 from flask_httpauth import HTTPBasicAuth
 from flask_httpauth import HTTPTokenAuth
 from user_util import UserUtil
+from coordinates import Coordinates
 import time
-
+from sqldb import SQLDB
+  
 import logging
+
 import os
+
 logger = logging.getLogger(__name__)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(module)s - %(levelname)s - %(message)s')
 ch = logging.StreamHandler()
@@ -63,6 +70,10 @@ def verify_token(token):
 @token_auth.error_handler
 def token_auth_error(status):
     return Response(status=status, response='Token Auth API error')
+
+@token_auth.get_user_roles
+def get_user_roles(user):
+    return UserUtil().get_user_roles(user)
 
 """
 Add a ride to the VNC
@@ -267,15 +278,45 @@ def signUp():
         lname = request_json['lname']
         password = request_json['password']
 
+        if request_json.get('type') is None:
+            request_json['type'] = 'USER'
+            type = 'USER'
+        else:
+            type = request_json['type']
+
         logger.debug(f"Adding a user: email: {email}, "\
             f"fname: {fname}, "\
             f"lname: {lname}, "\
-            f"password: {password}")
+            f"password: {password}"\
+            f"type: {type}")
         response = vs.signUp(request_json)
         if response.success:
             logger.debug("Successfully inserted user")
             token = UserUtil().get_token(vs.getUser(email))
             response.results['authToken'] = token
+            return Response(json.dumps(response.results), mimetype='application/json')
+        return Response(status=409, response=response.message)
+    except KeyError:
+        logger.exception(f"Invalid request: {request} with body >> {request_json}")
+        return Response(status=400, response='Bad request data')
+
+# For the super admin to approve/activate admin accounts
+@app.route("/approveUser", methods=['PUT'])
+@token_auth.login_required(role='SUPERADMIN')
+def approveUser():
+    user_response = token_auth.current_user()
+    try:
+        user_response['email']
+    except TypeError:
+        return token_auth_error(401)
+    
+    request_json = request.get_json()
+    logger.debug("Request data:")
+    logger.debug(request_json)
+    try:
+        response = vs.approveUser(request_json)
+        if response.success:
+            logger.debug("Successfully approved user")
             return Response(json.dumps(response.results), mimetype='application/json')
         return Response(status=409, response=response.message)
     except KeyError:
@@ -290,6 +331,11 @@ def signIn():
     try:
         email = request_json['email']
         password = request_json['password']
+        if request_json.get('type') is None:
+            request_json['type'] = 'USER'
+            type = 'USER'
+        else:
+            type = request_json['type']
 
         logger.debug(f"Signing in: email: {email}, "\
             f"password: {password}")
@@ -420,7 +466,106 @@ def main():
         app.run(host='0.0.0.0', threaded=True)
 
         # Use this line if you want to run on localhost
-        # app.run(threaded=True)
+        #app.run(threaded=True)
+@app.route("/saveCoordinates", methods=['POST'])
+@token_auth.login_required
+def saveCoordinates():
+
+    user_response = token_auth.current_user()
+    try:
+        email = user_response['email']
+    except TypeError:
+        return token_auth_error(401)
+    request_json = request.get_json()
+
+    arrayOfPolylines = request_json["arrayOfPolylines"]
+    arrayOfNodes = request_json["arrayOfCircles"]
+    mapName = request_json["mapName"]
+    logger.debug(request_json)
+    for polyline in arrayOfPolylines:
+        coordinate = tuple([email,  mapName,  polyline, 'NULL'])
+        #coordinate = json.dumps(data_set)
+
+        response = Coordinates.insertPolyline(SQLDB(), coordinate)
+
+    for node in arrayOfNodes:
+        coordinate = tuple([email,  mapName,  'NULL', node])
+        #coordinate = json.dumps(data_set)
+
+        response = Coordinates.insertNode(SQLDB(), coordinate)
+
+
+
+
+    return str(id)
+    
+    
+    
+
+@app.route("/getMaps", methods=['GET'])
+@token_auth.login_required
+def getMaps():
+
+    user_response = token_auth.current_user()
+    try:
+        email = user_response['email']
+    except TypeError:
+        return token_auth_error(401)
+
+    response  = Coordinates.getMaps(SQLDB(), email)
+    temp = []
+    for map in response:
+        if map not in temp:
+            temp.append(map)
+
+
+
+
+    return Response(json.dumps(temp), mimetype='application/json')
+
+
+@app.route('/deleteMap/<map>', methods=['DELETE'])
+@token_auth.login_required
+def deleteMap(map):
+    user_response = token_auth.current_user()
+    try:
+        email = user_response['email']
+    except TypeError:
+        return token_auth_error(401)
+    response  = Coordinates.deleteMap(SQLDB(), map, email)
+    logger.debug(response.success)
+    response  = Coordinates.getMaps(SQLDB(), email)
+    temp = []
+    for m in response:
+        if m not in temp:
+            temp.append(m)
+
+
+
+
+
+    return Response(json.dumps(temp), mimetype='application/json')
+
+@app.route("/getCoordinates/<map>", methods=['GET'])
+@token_auth.login_required
+def getCoordinates(map):
+
+    user_response = token_auth.current_user()
+    try:
+        email = user_response['email']
+    except TypeError:
+        return token_auth_error(401)
+
+    response  = Coordinates.getCoordinates(SQLDB(),map, email)
+
+
+
+
+
+    return Response(json.dumps(response), mimetype='application/json')
+    
+    
+
 
 if __name__ == "__main__":
     main()
